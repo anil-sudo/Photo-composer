@@ -216,7 +216,120 @@
     <button style="display:none;" id="anotherBtn">Compress Another</button>
   </div>
 
-  <script src"./main.js"></script>
+  <script>
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const previewImage = document.getElementById("previewImage");
+    let selectedFile = null;
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("drag-over");
+    });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const files = e.dataTransfer.files;
+      handleFile(files[0]);
+    });
+    fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        alert("Please upload a valid image file.");
+        return;
+      }
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        previewImage.src = e.target.result;
+        previewImage.style.display = "block";
+        document.getElementById("dropText").style.display = "none";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    document.getElementById("compressBtn").addEventListener("click", async () => {
+      if (!selectedFile) {
+        alert("Please upload an image first.");
+        return;
+      }
+
+      const targetKB = document.getElementById("targetSize").value;
+      if (targetKB < 10) {
+        alert("Please enter a target size of at least 10 KB.");
+        return;
+      }
+
+      const loadingMessage = document.getElementById("loadingMessage");
+      loadingMessage.style.display = "block";
+
+      const progressBar = document.getElementById("progressBar");
+      const progress = progressBar.querySelector("span");
+      progressBar.style.display = "block";
+      progress.style.width = "10%";
+
+      const maxSizeMB = targetKB / 1024;
+      const outputType = document.getElementById("formatSelect").value;
+      const quality = parseFloat(document.getElementById("qualityRange").value);
+
+      const options = {
+        maxSizeMB: maxSizeMB,
+        maxWidthOrHeight: 1200,
+        useWebWorker: true,
+        fileType: outputType,
+        initialQuality: quality,
+        onProgress: p => progress.style.width = p + "%"
+      };
+
+      try {
+        const compressedFile = await imageCompression(selectedFile, options);
+        const compressedUrl = URL.createObjectURL(compressedFile);
+
+        document.getElementById("originalImg").src = URL.createObjectURL(selectedFile);
+        document.getElementById("originalImg").style.display = "block";
+        const originalKB = selectedFile.size / 1024;
+        document.getElementById("originalSize").innerText = `Size: ${Math.round(originalKB)} KB`;
+
+        document.getElementById("compressedImg").src = compressedUrl;
+        document.getElementById("compressedImg").style.display = "block";
+        const compressedKB = compressedFile.size / 1024;
+        const percent = 100 - (compressedKB / originalKB * 100);
+        document.getElementById("compressedSize").innerText = `Size: ${Math.round(compressedKB)} KB (${Math.round(percent)}% smaller)`;
+
+        const downloadLink = document.getElementById("downloadLink");
+        downloadLink.href = compressedUrl;
+        downloadLink.download = `compressed-${selectedFile.name}`;
+        downloadLink.style.display = "inline-block";
+
+        document.getElementById("anotherBtn").style.display = "inline-block";
+      } catch (err) {
+        alert("Compression failed.");
+        console.error(err);
+      } finally {
+        loadingMessage.style.display = "none";
+        progress.style.width = "100%";
+        setTimeout(() => {
+          progressBar.style.display = "none";
+          progress.style.width = "0%";
+        }, 1000);
+      }
+    });
+
+    document.getElementById("anotherBtn").addEventListener("click", () => {
+      selectedFile = null;
+      previewImage.style.display = "none";
+      document.getElementById("dropText").style.display = "block";
+      document.getElementById("originalImg").style.display = "none";
+      document.getElementById("compressedImg").style.display = "none";
+      document.getElementById("originalSize").innerText = "";
+      document.getElementById("compressedSize").innerText = "";
+      document.getElementById("downloadLink").style.display = "none";
+      document.getElementById("anotherBtn").style.display = "none";
+    });
+  </script>
 </body>
 </html> 
 
